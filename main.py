@@ -5,8 +5,10 @@ from sklearn.preprocessing import OneHotEncoder
 import numpy as np
 from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LogisticRegression
+import seaborn as sns
 from utils import transform_column_to_onehot, split_data_and_train_model, transform_data_to_predict, score_model, train_with_kFold
 from utils import split_column_by_type, label_output_feature, get_confusion_matrix
+from utils import get_f1, get_logloss, get_precision, get_recall
 
 st.set_page_config(page_title='Linear Regression')
 
@@ -20,6 +22,7 @@ if __name__=='__main__':
         st.session_state['trained'] = False
         st.session_state['score'] = [0, 0]
         st.session_state['model'] = None
+        st.session_state['cfs_matrix'] = None
         
     st.title("Classify anything with Logistic Regression")
     
@@ -32,12 +35,16 @@ if __name__=='__main__':
             df = pd.read_csv(uploaded_file)
             st.write(df)
             column_labels = df.columns.to_numpy()
-            categorical_column_labels, numerical_column_labels = split_column_by_type(df, column_labels)
+            # categorical_column_labels, numerical_column_labels = split_column_by_type(df, column_labels)
             
             st.header("Select output feature")
             st.write('<style>div.Widget.row-widget.stRadio > div{flex-direction:row;}</style>', unsafe_allow_html=True)
-            selected_output_feature = st.radio("", categorical_column_labels, label_visibility='collapsed')
+            selected_output_feature = st.radio("", column_labels, label_visibility='collapsed', on_change=resetSessionState)
+            
             st.write(f"Output feature: {selected_output_feature}")
+            if (selected_output_feature):
+                st.write(f"This feature contains {len(df[selected_output_feature].unique())} classes")
+                st.write(f'First 5 classes in this feature: {df[selected_output_feature].unique()[:5]}')
 
             st.header("Select training features")
             cols = st.columns(4)
@@ -55,12 +62,18 @@ if __name__=='__main__':
                 st.info("Select training feature to continue")
                 st.stop()
         
+            # Initalize
             y, label_encoder = label_output_feature(df[selected_output_feature].to_numpy())
             X = np.array([])
             dict_encoder = {}
-            cfs_matrix = [[]]
+            precision_score = 0
+            recall_score = 0
+            F1_score = 0
+            log_loss = 0
+            cfs_matrix = np.zeros((len(label_encoder.classes_), len(label_encoder.classes_)))
+            
             X, dict_encoder= transform_column_to_onehot(df=df, selected_columns=selected_columns, dict_encoder=dict_encoder)
-
+            
             st.header("Train test split: ")
             kFold_mode = st.checkbox("K Fold", on_change=resetSessionState)
                     
@@ -72,6 +85,7 @@ if __name__=='__main__':
                     st.session_state['score'] = [train_score, test_score]
                     st.session_state['model'] = model
                     cfs_matrix = get_confusion_matrix(model, X, y)
+                    st.session_state['cfs_matrix'] = cfs_matrix
             else:
                 train_split_ratio = float(st.slider('Select train ratio in range', 0, 90, 80, on_change=resetSessionState))
                 if st.button("Train model!"):
@@ -82,7 +96,16 @@ if __name__=='__main__':
                     train_score = score_model(model, X_train, y_train)
                     st.session_state['score'] = [train_score, test_score]
                     cfs_matrix = get_confusion_matrix(model, X, y)
-
+                    st.session_state['cfs_matrix'] = cfs_matrix
+                    
+            if not st.session_state['trained']:
+                st.info("Train model to continue")
+                st.stop()
+                
+            precision_score, recall_score, F1_score = get_precision(st.session_state['model'], X, y), \
+                                                        get_recall(st.session_state['model'], X, y), \
+                                                        get_f1(st.session_state['model'], X, y)
+            
             col1, col2 = st.columns(2)
             fig, ax = plt.subplots()
             if kFold_mode:
@@ -103,15 +126,15 @@ if __name__=='__main__':
                 ax.set_ylabel("Set")
                 ax.set_title("Train test score")
                 col1.pyplot(fig)                
+            col1.write(f"Precision: {precision_score}")
+            col1.write(f"Recall: {recall_score}")
+            col1.write(f"F1: {F1_score}")
+            # col1.write(f"Log loss: {log_loss}")
                 
             # fig2 = sns.heatmap(cfs_matrix)
             # col2.pyplot(fig2)  
-            df = pd.DataFrame(cfs_matrix, columns=label_encoder.classes_, index=label_encoder.classes_)
-            col2.write(df)
-
-            if not st.session_state['trained']:
-                st.info("Train model to continue")
-                st.stop()
+            df_cfs = pd.DataFrame(st.session_state['cfs_matrix'], columns=label_encoder.classes_, index=label_encoder.classes_)
+            col2.write(df_cfs)
                 
             st.header("Make Prediction")
             dict_data_to_prediction = {}
@@ -125,7 +148,6 @@ if __name__=='__main__':
                     dict_data_to_prediction[data_column] = st.number_input(data_column)
             
             if st.button("Predict!"):
-                print("here")
                 data = transform_data_to_predict(selected_columns, dict_data_to_prediction)
                 try:
                     model = st.session_state['model'] 

@@ -7,7 +7,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.metrics import mean_squared_error
 from sklearn.model_selection import KFold
 from sklearn import preprocessing
-from sklearn.metrics import log_loss, confusion_matrix
+from sklearn.metrics import log_loss, confusion_matrix, precision_score, recall_score, f1_score
 
 def split_column_by_type(df, column_labels):
     categorical_column_labels = []
@@ -56,6 +56,27 @@ def transform_data_to_predict(selected_columns, dict_data_to_prediction):
 
 def score_model(model: LogisticRegression, X_test, y_test):
     score = model.score(X_test, y_test)
+    return score
+
+def get_precision(model, X_test, y_test):
+    prediction = model.predict(X_test)
+    score = precision_score(y_test, prediction, average='micro')
+    return score
+
+def get_recall(model, X_test, y_test):
+    prediction = model.predict(X_test)
+    score = recall_score(y_test, prediction, average='micro')
+    return score
+
+def get_f1(model, X_test, y_test):
+    prediction = model.predict(X_test)
+    score = f1_score(y_test, prediction, average='micro')
+    return score
+
+def get_logloss(model, X_test, y_test):
+    prediction = model.predict_proba(X_test)
+    print(prediction.shape)
+    score = log_loss(y_test, prediction)
     return score
 
 def train_with_kFold(X, y, n_splits):
