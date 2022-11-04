@@ -5,7 +5,7 @@ from sklearn.preprocessing import OneHotEncoder
 import numpy as np
 from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LogisticRegression
-import seaborn as sns
+# import seaborn as sns
 from utils import transform_column_to_onehot, split_data_and_train_model, transform_data_to_predict, score_model, train_with_kFold
 from utils import split_column_by_type, label_output_feature, get_confusion_matrix
 from utils import get_f1, get_logloss, get_precision, get_recall
